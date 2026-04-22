@@ -194,196 +194,242 @@ with tab1:
         st.error("Dados inexistentes.")
 
 with tab2:
+    if (not df_stats.empty and "rating" in df_stats.columns and (df_stats["rating"] != 0).any()):
+        st.title("Análise por Time")
+        df_stats_time = df_stats.groupby("team").agg({
+            "rating": "mean",
+            "kills": "mean",
+            "deaths": "mean",
+            "assists": "mean",
+            "kd_diff": "mean",
+            "hs_pct": "mean",
+            "adr": "mean"
+        }).reset_index()
+        df_stats_time = df_stats_time.sort_values(by="rating", ascending=False)
 
-    st.title("Análise por Time")
-    df_stats_time = df_stats.groupby("team").agg({
-        "rating": "mean",
-        "kills": "mean",
-        "deaths": "mean",
-        "assists": "mean",
-        "kd_diff": "mean",
-        "hs_pct": "mean",
-        "adr": "mean"
-    }).reset_index()
-    df_stats_time = df_stats_time.sort_values(by="rating", ascending=False)
+        col1, col2, col3, col4 = st.columns(4)
 
-    col1, col2, col3, col4 = st.columns(4)
+        # MVP torneio (KD)
+        kd_mvp = df_stats.groupby("team")["kd_diff"].mean()
+        mvp_nome = kd_mvp.idxmax()
+        mvp_score = kd_mvp.max()
 
-    # MVP torneio (KD)
-    kd_mvp = df_stats.groupby("team")["kd_diff"].mean()
-    mvp_nome = kd_mvp.idxmax()
-    mvp_score = kd_mvp.max()
+        col1.metric(
+            label="Time com maior KD médio",
+            value=mvp_nome,
+            delta=f"{mvp_score:.2f} KD médio"
+        )
 
-    col1.metric(
-        label="Time com maior KD médio",
-        value=mvp_nome,
-        delta=f"{mvp_score:.2f} KD médio"
-    )
+        # MVP torneio (rating)
+        rating_mvp = df_stats.groupby("team")["rating"].mean()
+        rating_mvp_nome = rating_mvp.idxmax()
+        rating_mvp_score = rating_mvp.max()
 
-    # MVP torneio (rating)
-    rating_mvp = df_stats.groupby("team")["rating"].mean()
-    rating_mvp_nome = rating_mvp.idxmax()
-    rating_mvp_score = rating_mvp.max()
+        col2.metric(
+            label="Time com maior rating médio",
+            value=rating_mvp_nome,
+            delta=f"{rating_mvp_score:.2f} rating médio"
+        )
+        
+        # Time com maior precisão
+        hs_mvp = df_stats.groupby("team")["hs_pct"].mean()
+        hs_mvp_nome = hs_mvp.idxmax()
+        hs_mvp_score = hs_mvp.max()
 
-    col2.metric(
-        label="Time com maior rating médio",
-        value=rating_mvp_nome,
-        delta=f"{rating_mvp_score:.2f} rating médio"
-    )
-    
-    # Time com maior precisão
-    hs_mvp = df_stats.groupby("team")["hs_pct"].mean()
-    hs_mvp_nome = hs_mvp.idxmax()
-    hs_mvp_score = hs_mvp.max()
+        col3.metric(
+            label="Time com maior precisão média",
+            value=hs_mvp_nome,
+            delta=f"{hs_mvp_score:.2f} %"
+        )
 
-    col3.metric(
-        label="Time com maior precisão média",
-        value=hs_mvp_nome,
-        delta=f"{hs_mvp_score:.2f} %"
-    )
+        # Time com maior dano por round
+        adr_mvp = df_stats.groupby("team")["adr"].mean()
+        adr_mvp_nome = adr_mvp.idxmax()
+        adr_mvp_score = adr_mvp.max()
 
-    # Time com maior dano por round
-    adr_mvp = df_stats.groupby("team")["adr"].mean()
-    adr_mvp_nome = adr_mvp.idxmax()
-    adr_mvp_score = adr_mvp.max()
+        col4.metric(
+            label="Time com maior dano médio por round",
+            value=adr_mvp_nome,
+            delta=f"{adr_mvp_score:.2f} Dano"
+        )
 
-    col4.metric(
-        label="Time com maior dano médio por round",
-        value=adr_mvp_nome,
-        delta=f"{adr_mvp_score:.2f} Dano"
-    )
+        st.divider()
+        st.subheader("Estaísticas por time")
 
-    st.divider()
-    st.subheader("Estaísticas por time")
+        team_filter = st.selectbox("Selecione um time", df_stats_time["team"], index=0)
+        
+        # Para o gráfico de radar ficar visualmente útil, precisamos NORMALIZAR 
+        # os dados (0 a 100). Senão o ACS (~250) esconde o K/D (~1.5) e tudo 
+        # fica visualmente idêntico e esticado nos mesmos lugares.
+        df_radar = df_stats_time.copy()
+        cols_radar = df_radar.drop(columns=["team"]).columns
 
-    team_filter = st.selectbox("Selecione um time", df_stats_time["team"], index=0)
-    
-    # Para o gráfico de radar ficar visualmente útil, precisamos NORMALIZAR 
-    # os dados (0 a 100). Senão o ACS (~250) esconde o K/D (~1.5) e tudo 
-    # fica visualmente idêntico e esticado nos mesmos lugares.
-    df_radar = df_stats_time.copy()
-    cols_radar = df_radar.drop(columns=["team"]).columns
+        for col in cols_radar:
+            max_val = df_radar[col].max()
+            min_val = df_radar[col].min()
+            if max_val != min_val:
+                df_radar[col] = (df_radar[col] - min_val) / (max_val - min_val) * 100
+            else:
+                df_radar[col] = 100
 
-    for col in cols_radar:
-        max_val = df_radar[col].max()
-        min_val = df_radar[col].min()
-        if max_val != min_val:
-            df_radar[col] = (df_radar[col] - min_val) / (max_val - min_val) * 100
-        else:
-            df_radar[col] = 100
+        col1, col2 = st.columns(2)
 
-    col1, col2, col3 = st.columns(3)
+        # Gráfico de radar
+        df_team = df_radar[df_radar["team"] == team_filter]
+        df_team = df_team[cols_radar].iloc[0].values
 
-    # Gráfico de radar
-    df_team = df_radar[df_radar["team"] == team_filter]
-    df_team = df_team[cols_radar].iloc[0].values
+        fig_radar = go.Figure()
 
-    fig_radar = go.Figure()
-
-    fig_radar.add_trace(go.Scatterpolar(
-        r=df_team,
-        theta=cols_radar,
-        fill='toself',
-        name=team_filter,
-        line=dict(color='green')
-    ))
-
-    fig_radar.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)", # Fundo transparente para incorporar no dashboard
-        polar=dict(
-            bgcolor="rgba(0,0,0,0)", # Fundo transparente da teia
-            radialaxis=dict(
-                visible=True,
-                showticklabels=True,
-                range=[0, 100]
-            )
-        ),
-        showlegend=True
-    )
-
-    # Gráfico de pizza com os picls de agentes por time selecionado
-    df_agents = df_stats[df_stats["team"] == team_filter]["agent"].value_counts().reset_index()
-    df_agents.columns = ["agent", "picks"]
-    df_agents["agent"] = df_agents["agent"].str.title()
-
-    fig_pizza = px.pie(
-        df_agents,
-        values="picks",
-        names="agent",
-        title="Distribuição de Picks por Agente",
-        color_discrete_sequence=px.colors.qualitative.Prism
-    )
-
-    # Gráfico de pizza com os mapas mais jogados por time selecionado
-    df_maps = df_stats[df_stats["team"] == team_filter]["map"].value_counts().reset_index()
-    df_maps.columns = ["map", "plays"]
-    df_maps["map"] = df_maps["map"].str.title()
-
-    fig_maps = px.pie(
-        df_maps,
-        values="plays",
-        names="map",
-        title="Mapas mais jogados",
-        color_discrete_sequence=px.colors.qualitative.Prism
-    )
-
-    col1.plotly_chart(fig_radar, use_container_width=True)
-    col2.plotly_chart(fig_pizza, use_container_width=True)
-    col3.plotly_chart(fig_maps, use_container_width=True)
-
-    st.divider()
-    st.subheader("Comparação entre times")
-
-    col1, col2 = st.columns(2)
-
-    first_team = col1.selectbox("Escolha um time", df_stats_time["team"], index=0)
-    second_team = col2.selectbox("Escolha outro time", df_stats_time["team"], index=len(df_stats_time)-2)
-
-    df_first_team = df_stats_time[df_stats_time["team"] == first_team]
-    df_second_team = df_stats_time[df_stats_time["team"] == second_team]
-
-    r_first = df_radar[df_radar["team"] == first_team][cols_radar].iloc[0].values
-    r_second = df_radar[df_radar["team"] == second_team][cols_radar].iloc[0].values
-
-    fig_radar = go.Figure()
-
-    fig_radar.add_trace(go.Scatterpolar(
-        r=r_first,
+        fig_radar.add_trace(go.Scatterpolar(
+            r=df_team,
             theta=cols_radar,
             fill='toself',
-            name=first_team,
-            line=dict(color='red')
+            name=team_filter,
+            line=dict(color='green')
         ))
 
-    fig_radar.add_trace(go.Scatterpolar(
-        r=r_second,
-        theta=cols_radar,
-        fill='toself',
-        name=second_team,
-        line=dict(color='blue')
-    ))
+        fig_radar.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)", # Fundo transparente para incorporar no dashboard
+            title="Estatísticas do time",
+            polar=dict(
+                bgcolor="rgba(0,0,0,0)", # Fundo transparente da teia
+                radialaxis=dict(
+                    visible=True,
+                    showticklabels=True,
+                    range=[0, 100]
+                )
+            ),
+            showlegend=True
+        )
 
-    fig_radar.update_layout(
-        template="plotly_dark",
-        paper_bgcolor="rgba(0,0,0,0)", # Fundo transparente para incorporar no dashboard
-        polar=dict(
-            bgcolor="rgba(0,0,0,0)", # Fundo transparente da teia
-            radialaxis=dict(
-                visible=True,
-                showticklabels=True,
-                range=[0, 100]
-            )
-        ),
-        showlegend=True
-    )
+        # Gráfico de pizza com os picls de agentes por time selecionado
+        df_agents = df_stats[df_stats["team"] == team_filter]["agent"].value_counts().reset_index()
+        df_agents.columns = ["agent", "picks"]
+        df_agents["agent"] = df_agents["agent"].str.title()
 
-    st.plotly_chart(fig_radar, use_container_width=True)
+        fig_agents = px.pie(
+            df_agents,
+            values="picks",
+            names="agent",
+            title="Distribuição de Picks por Agente",
+            color_discrete_sequence=px.colors.qualitative.Prism
+        )
+
+        # Gráfico de barras com os mapas mais jogados por time selecionado
+        df_maps = df_stats[df_stats["team"] == team_filter]["map"].value_counts().reset_index()
+        df_maps.columns = ["map", "plays"]
+        df_maps["map"] = df_maps["map"].str.title()
+
+        fig_maps = px.bar(
+            df_maps,
+            x="plays",
+            y="map",
+            orientation='h',
+            color="map",
+            title="Mapas mais jogados"
+        )
+
+        # Gráfico de barras com os melhores players do time por kills
+        df_players = df_stats[df_stats["team"] == team_filter][["player", "kills"]].sort_values(by="kills", ascending=False)
+        df_players["player"] = df_players["player"].str.title()
         
-    with st.expander("Legenda do Gráfico"):
-        st.markdown("""
-        - **ADR (Average Damage Per Round):** Dano médio causado por round.
-        - **KD_DIFF:** Saldo de Kills menos Deaths (Abates vs Mortes).
-        - **HS_PCT:** Porcentagem de acertos na cabeça (Headshot).
-        - **Kills / Deaths / Assists:** Média de Abates, Mortes ou Assistências feitas pelo time.
-        """)
+        fig_players = px.bar(
+            df_players,
+            x="kills",
+            y="player",
+            orientation='h',
+            color="player",
+            title="Jogadores com mais abates"
+        )
+
+        col1.plotly_chart(fig_radar, use_container_width=True)
+        col2.plotly_chart(fig_players, use_container_width=True)
+
+        col1, col2 = st.columns(2)
+
+        col1.plotly_chart(fig_maps, use_container_width=True)
+        col2.plotly_chart(fig_agents, use_container_width=True)
+
+        st.divider()
+        st.subheader("Comparação entre times")
+
+        col1, col2 = st.columns(2)
+
+        first_team = col1.selectbox("Escolha um time", df_stats_time["team"], index=0)
+        second_team = col2.selectbox("Escolha outro time", df_stats_time["team"], index=len(df_stats_time)-2)
+
+        col1, col2, col3 = st.columns(3)
+
+        df_first_team = df_stats_time[df_stats_time["team"] == first_team]
+        df_second_team = df_stats_time[df_stats_time["team"] == second_team]
+
+        r_first = df_radar[df_radar["team"] == first_team][cols_radar].iloc[0].values
+        r_second = df_radar[df_radar["team"] == second_team][cols_radar].iloc[0].values
+
+        fig_radar = go.Figure()
+
+        fig_radar.add_trace(go.Scatterpolar(
+            r=r_first,
+                theta=cols_radar,
+                fill='toself',
+                name=first_team,
+                line=dict(color='red')
+            ))
+
+        fig_radar.add_trace(go.Scatterpolar(
+            r=r_second,
+            theta=cols_radar,
+            fill='toself',
+            name=second_team,
+            line=dict(color='blue')
+        ))
+
+        fig_radar.update_layout(
+            template="plotly_dark",
+            paper_bgcolor="rgba(0,0,0,0)", # Fundo transparente para incorporar no dashboard
+            polar=dict(
+                bgcolor="rgba(0,0,0,0)", # Fundo transparente da teia
+                radialaxis=dict(
+                    visible=True,
+                    showticklabels=True,
+                    range=[0, 100]
+                )
+            ),
+            showlegend=True
+        )
+
+        df_box_hs = df_stats[df_stats["team"].isin([first_team, second_team])]
+        fig_box_hs = px.box(
+            df_box_hs,
+            x="team",
+            y="hs_pct",
+            color="team",
+            title="Comparação de Precisão (HS %)",
+            color_discrete_map={first_team: 'red', second_team: 'blue'}
+        )
+        fig_box_hs.update_layout(showlegend=False)
+
+        df_box_kills = df_stats[df_stats["team"].isin([first_team, second_team])]
+        fig_box_kills = px.box(
+            df_box_kills,
+            x="team",
+            y="kills",
+            color="team",
+            title="Comparação de Abates",
+            color_discrete_map={first_team: 'red', second_team: 'blue'}
+        )
+
+        col1.plotly_chart(fig_radar, use_container_width=True)
+        col2.plotly_chart(fig_box_hs, use_container_width=True)
+        col3.plotly_chart(fig_box_kills, use_container_width=True) 
+
+        with st.expander("Legenda do Gráfico"):
+            st.markdown("""
+            - **ADR (Average Damage Per Round):** Dano médio causado por round.
+            - **KD_DIFF:** Saldo de Kills menos Deaths (Abates vs Mortes).
+            - **HS_PCT:** Porcentagem de acertos na cabeça (Headshot).
+            - **Kills / Deaths / Assists:** Média de Abates, Mortes ou Assistências feitas pelo time.
+            """)
+    else:
+        st.error("Dados inexistentes.")
