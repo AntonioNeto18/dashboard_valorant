@@ -352,6 +352,103 @@ with tab2:
         col2.plotly_chart(fig_agents, use_container_width=True)
 
         st.divider()
+
+        st.subheader(f"Desempenho do time {team_filter} por mapa")
+
+        col1, col2 = st.columns(2)
+        opcoes_mapas = df_maps["map"].tolist()
+        idx_second_map = 1 if len(opcoes_mapas) > 1 else 0
+        
+        first_map = col1.selectbox("Selecione um mapa", opcoes_mapas, index=0)
+        second_map = col2.selectbox("Selecione outro mapa", opcoes_mapas, index=idx_second_map)
+
+        df_team_all_matches = df_stats[df_stats["team"] == team_filter].copy()
+        df_team_all_matches["map"] = df_team_all_matches["map"].str.title()
+        
+        if not df_team_all_matches.empty and len(opcoes_mapas) > 0:
+            df_stats_map = df_team_all_matches.groupby("map").agg({
+                "rating": "mean",
+                "kills": "mean",
+                "deaths": "mean",
+                "assists": "mean",
+                "kd_diff": "mean",
+                "hs_pct": "mean",
+                "adr": "mean"
+            }).reset_index()
+
+            df_radar_map = df_stats_map.copy()
+            cols_radar_map = df_radar_map.drop(columns=["map"]).columns
+
+            for col in cols_radar_map:
+                max_val = df_radar_map[col].max()
+                min_val = df_radar_map[col].min()
+                if max_val != min_val:
+                    df_radar_map[col] = (df_radar_map[col] - min_val) / (max_val - min_val) * 100
+                else:
+                    df_radar_map[col] = 100
+
+            col1_map, col2_map, col3_map = st.columns(3)
+
+            df_first_map = df_radar_map[df_radar_map["map"] == first_map]
+            df_second_map = df_radar_map[df_radar_map["map"] == second_map]
+            
+            fig_radar_map = go.Figure()
+            
+            if not df_first_map.empty:
+                fig_radar_map.add_trace(go.Scatterpolar(
+                    r=df_first_map[cols_radar_map].iloc[0].values,
+                    theta=cols_radar_map,
+                    fill='toself',
+                    name=first_map,
+                    line=dict(color='purple')
+                ))
+                
+            if not df_second_map.empty and first_map != second_map:
+                fig_radar_map.add_trace(go.Scatterpolar(
+                    r=df_second_map[cols_radar_map].iloc[0].values,
+                    theta=cols_radar_map,
+                    fill='toself',
+                    name=second_map,
+                    line=dict(color='yellow')
+                ))
+
+            fig_radar_map.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="rgba(0,0,0,0)",
+                polar=dict(
+                    bgcolor="rgba(0,0,0,0)",
+                    radialaxis=dict(visible=True, showticklabels=True, range=[0, 100])
+                ),
+                showlegend=True
+            )
+            
+            col1_map.plotly_chart(fig_radar_map, use_container_width=True)
+
+            df_box_map_filtered = df_team_all_matches[df_team_all_matches["map"].isin([first_map, second_map])]
+            
+            fig_box_map_hs = px.box(
+                df_box_map_filtered,
+                x="map",
+                y="hs_pct",
+                color="map",
+                title="Precisão por Mapa (HS %)",
+                color_discrete_map={first_map: 'purple', second_map: 'yellow'}
+            )
+            fig_box_map_hs.update_layout(showlegend=False)
+            col2_map.plotly_chart(fig_box_map_hs, use_container_width=True)
+            
+            fig_box_map_kills = px.box(
+                df_box_map_filtered,
+                x="map",
+                y="kills",
+                color="map",
+                title="Abates por Mapa",
+                color_discrete_map={first_map: 'purple', second_map: 'yellow'}
+            )
+            fig_box_map_kills.update_layout(showlegend=False)
+            col3_map.plotly_chart(fig_box_map_kills, use_container_width=True)
+
+        st.divider()
         st.subheader("Comparação entre times")
 
         col1, col2 = st.columns(2)
