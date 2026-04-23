@@ -222,6 +222,7 @@ with tab2:
     st.subheader(f"Desempenho do time {team_filter} por mapa")
 
     c1, c2 = st.columns(2)
+    
     opcoes_mapas = df_maps["map"].tolist()
     idx_second_map = 1 if len(opcoes_mapas) > 1 else 0
     
@@ -325,7 +326,13 @@ with tab3:
 
     st.divider()
     st.subheader(f"Desempenho do jogador {player_filter} por mapa")
+    
     c1, c2 = st.columns(2)
+
+    df_maps = df_stats[df_stats["player"] == player_filter]["map"].value_counts().reset_index()
+    df_maps.columns = ["map", "plays"]
+    df_maps["map"] = df_maps["map"].str.title()
+    
     opcoes_mapas = df_maps["map"].tolist()
     idx_second_map = 1 if len(opcoes_mapas) > 1 else 0
     
