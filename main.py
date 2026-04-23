@@ -7,7 +7,7 @@ st.set_page_config(page_title="Analise torneio de valorant 2022", layout="wide")
 
 @st.cache_data
 def load_data():
-    df = pd.read_csv("overview.csv")
+    df = pd.read_csv("dados.csv")
 
     mapeamento_colunas = {
         "Tournament": "tournament", "Stage": "stage", "Match Type": "match_type",
