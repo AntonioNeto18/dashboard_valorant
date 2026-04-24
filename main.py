@@ -23,6 +23,10 @@ def load_data():
     df = df.rename(columns=mapeamento_colunas)
     df = df[df["map"] != "All Maps"]
     
+    df["player"] = df["player"].str.title()
+    df["agent"] = df["agent"].str.title()
+    df["map"] = df["map"].str.title()
+    
     # Limpeza de dados
     for col in ['kast', 'hs']:
         if col in df.columns:
@@ -148,7 +152,6 @@ with tab1:
     c1, c2 = st.columns(2)
 
     top10_players = df_stats.groupby(["player", "team"])["rating"].mean().sort_values(ascending=False).head(10).reset_index()
-    top10_players["player"] = top10_players["player"].str.title()
     fig_top_players = px.bar(
         top10_players, x="rating", y="player", color="team", orientation='h', text="rating",
         title="Top 10 Jogadores por Rating Médio",
@@ -161,7 +164,6 @@ with tab1:
 
     top10_agentes = df_stats["agent"].value_counts().head(10).reset_index()
     top10_agentes.columns = ["agent", "picks"]
-    top10_agentes["agent"] = top10_agentes["agent"].str.title()
     
     fig_picks = px.bar(
         top10_agentes, x="picks", y="agent", color="picks", orientation='h', text="picks",
@@ -199,21 +201,18 @@ with tab2:
     c1.plotly_chart(fig_radar_single, use_container_width=True)
 
     df_players = df_stats[df_stats["team"] == team_filter][["player", "kills"]].sort_values(by="kills", ascending=False)
-    df_players["player"] = df_players["player"].str.title()
     fig_players = px.bar(df_players, x="kills", y="player", orientation='h', color="player", title="Jogadores com mais abates")
     c2.plotly_chart(fig_players, use_container_width=True)
 
     c1, c2 = st.columns(2)
     df_maps = df_stats[df_stats["team"] == team_filter]["map"].value_counts().reset_index()
     df_maps.columns = ["map", "plays"]
-    df_maps["map"] = df_maps["map"].str.title()
     
     fig_maps = px.bar(df_maps, x="plays", y="map", orientation='h', color="map", title="Mapas mais jogados")
     c1.plotly_chart(fig_maps, use_container_width=True)
 
     df_agents = df_stats[df_stats["team"] == team_filter]["agent"].value_counts().reset_index()
     df_agents.columns = ["agent", "picks"]
-    df_agents["agent"] = df_agents["agent"].str.title()
     
     fig_agents = px.pie(df_agents, values="picks", names="agent", title="Distribuição de Picks por Agente", color_discrete_sequence=px.colors.qualitative.Prism)
     c2.plotly_chart(fig_agents, use_container_width=True)
@@ -230,7 +229,6 @@ with tab2:
     second_map = c2.selectbox("Selecione outro mapa", opcoes_mapas, index=idx_second_map)
 
     df_team_all_matches = df_stats[df_stats["team"] == team_filter].copy()
-    df_team_all_matches["map"] = df_team_all_matches["map"].str.title()
     
     if not df_team_all_matches.empty and len(opcoes_mapas) > 0:
         df_stats_map = df_team_all_matches.groupby("map").agg({
@@ -286,8 +284,6 @@ with tab2:
 # ================= TAB 3: ANÁLISE POR JOGADOR =================
 with tab3:
     st.title("Análise por Jogador")
-    
-    
 
     df_stats_player = df_stats.groupby("player").agg({
         "rating": "mean", "kills": "mean", "deaths": "mean", "assists": "mean",
@@ -314,13 +310,11 @@ with tab3:
 
     df_agents_picks = df_stats[df_stats["player"] == player_filter]["agent"].value_counts().reset_index()
     df_agents_picks.columns = ["agent", "picks"]
-    df_agents_picks["agent"] = df_agents_picks["agent"].str.title()
     
     fig_agents = px.pie(df_agents_picks, values="picks", names="agent", title="Distribuição de Picks por Agente", color_discrete_sequence=px.colors.qualitative.Prism)
     c2.plotly_chart(fig_agents, use_container_width=True)
 
     df_agents_kills = df_stats[df_stats["player"] == player_filter][["agent", "kills"]].sort_values(by="kills", ascending=False)
-    df_agents_kills["agent"] = df_agents_kills["agent"].str.title()
     fig_agents = px.bar(df_agents_kills, x="kills", y="agent", orientation='h', color="agent", title="Agentes com mais abates")
     c3.plotly_chart(fig_agents, use_container_width=True)
 
@@ -331,7 +325,6 @@ with tab3:
 
     df_maps = df_stats[df_stats["player"] == player_filter]["map"].value_counts().reset_index()
     df_maps.columns = ["map", "plays"]
-    df_maps["map"] = df_maps["map"].str.title()
     
     opcoes_mapas = df_maps["map"].tolist()
     idx_second_map = 1 if len(opcoes_mapas) > 1 else 0
@@ -340,7 +333,6 @@ with tab3:
     second_map = c2.selectbox("Selecione outro mapa", opcoes_mapas, index=idx_second_map, key="player_second_map")
 
     df_player_all_matches = df_stats[df_stats["player"] == player_filter].copy()
-    df_player_all_matches["map"] = df_player_all_matches["map"].str.title()
     
     if not df_player_all_matches.empty and len(opcoes_mapas) > 0:
         df_stats_map = df_player_all_matches.groupby("map").agg({
@@ -363,3 +355,32 @@ with tab3:
         
     fig_box_map_kills = plot_boxplot(df_player_all_matches, "map", map_items, "kills", "Abates por Mapa", map_colors)
     c3_map.plotly_chart(fig_box_map_kills, use_container_width=True)
+
+    st.divider()
+    st.subheader("Comparação entre jogadores")
+
+    c1, c2 = st.columns(2)
+    first_player = c1.selectbox("Escolha um jogador", df_stats_player["player"], index=0)
+    second_player = c2.selectbox("Escolha outro jogador", df_stats_player["player"], index=len(df_stats_player)-2)
+
+    c1, c2, c3 = st.columns(3)
+    
+    player_colors = {first_player: 'red', second_player: 'blue'}
+    player_items = [first_player] if first_player == second_player else [first_player, second_player]
+
+    fig_radar_comp = plot_radar(df_radar_player, cols_radar_player, "player", player_items, player_colors)
+    c1.plotly_chart(fig_radar_comp, use_container_width=True)
+
+    fig_box_hs = plot_boxplot(df_stats, "player", player_items, "hs", "Comparação de Precisão (HS %)", player_colors)
+    c2.plotly_chart(fig_box_hs, use_container_width=True)
+
+    fig_box_kills = plot_boxplot(df_stats, "player", player_items, "kills", "Comparação de Abates", player_colors)
+    c3.plotly_chart(fig_box_kills, use_container_width=True) 
+
+    with st.expander("Legenda do Gráfico"):
+        st.markdown("""
+        - **ADR (Average Damage Per Round):** Dano médio causado por round.
+        - **KD_DIFF:** Saldo de Kills menos Deaths (Abates vs Mortes).
+        - **hs:** Porcentagem de acertos na cabeça (Headshot).
+        - **Kills / Deaths / Assists:** Média de Abates, Mortes ou Assistências feitas pelo time.
+        """)
